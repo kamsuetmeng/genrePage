@@ -1,0 +1,240 @@
+<cfcomponent output="false" extends="ies_ng8.view.template.BasicEditTemplate">
+	
+	<cffunction name="init"	returntype="any" access="public" output="false">
+		<cfargument name="js" type="ies_ng8.lib.Javascript" required="true" />
+		<cfargument name="style" type="ies_ng8.lib.Css" required="true" />
+		<cfargument name="title" type="string" required="no" default="" />
+		<cfargument name="ds" required="no" type="ies_ng8.lib.DataSource" />
+		<cfargument name="controllerName" type="string" required="no" default="" />
+		<cfargument name="actionName" type="string" required="no" default="" />
+		<cfargument name="pageName" type="string" required="no" default="Page" />
+		<cfargument name="container" type="string" required="no" default="EditSection" />
+		
+		<cfset super.init( js, style, title, ds, controllerName, actionName, pageName, container)>
+
+		<cfreturn this>
+	</cffunction>
+
+	<cffunction name="EditDetails" access="public" returntype="void" output="no">
+		<cfset acl = createObject('component', 'adapter.acl.#application.ACLAdapter#').init(session.userid, session.usergroupid, "GENRECODE", "edit")>
+		<cfset var f = this.ds.fields>
+		<cfif this.actionName eq "add">
+			<cfset f.CREATEDBY.hide()>
+			<cfset f.CREATEDDATETIME.hide()>
+			<cfset f.UPDATEDBY.hide()>
+			<cfset f.UPDATEDDATETIME.hide()>
+		<cfelse>
+			<cfset f.GENRECODE.setReadOnly(true)>
+
+			<cfif f.UPDATEDBY.getValue() eq "">
+				<cfset f.UPDATEDBY.hide()>
+			</cfif>
+			<cfif f.UPDATEDDATETIME.getValue() eq "">
+				<cfset f.UPDATEDDATETIME.hide()>
+			</cfif>
+
+
+			<cfset this.js.appendOnload("function AfterSave(page)
+			{
+				if (page.fields.UPDATEDBY.getValue() != '')
+				{
+					page.fields.UPDATEDBY.show();
+				}
+
+				if (page.fields.UPDATEDDATETIME.getValue() != '')
+				{
+				  page.fields.UPDATEDDATETIME.show();
+				}
+			}
+
+			")>
+		</cfif>
+
+
+		<!--- form field --->
+		<cfset insertSubSection("Info", this.container, "Setup Information")>
+		<cfset outputFormField(f.GENRECODE,"TextBox")>
+		<cfset outputFormField(f.STATUS,"SelectBox")>
+
+		<cfset outputFormField(f.GENREDESC,"TextBox")>
+		<cfset outputFormField(f.GENREDESC,"Blank")>
+
+		<cfset outputFormField(f.CREATEDBY,"TextBox")>
+		<cfset outputFormField(f.CREATEDDATETIME,"TextBox")>
+		<cfset outputFormField(f.UPDATEDBY,"TextBox")>
+		<cfset outputFormField(f.UPDATEDDATETIME,"TextBox")>
+		<cfset ActiveSection()>
+		<cfset InactiveSection()>
+	</cffunction>
+
+	<cffunction name="ActiveSection" access="public" returntype="void" output="no">
+		<cfset var f = this.ds.fields>
+		<!--- Tabs --->
+		<cfset activeTab = {title = " Active", content = "active", css="cssTabSection"}>
+		<cfset inactiveTab = {title = " Inactive", content = "inactive", css="cssTabSection"}>
+		<cfset informationTab = [activeTab,inactiveTab]>
+		<cfset tabAdapter = createObject('component','ies_ng8.adapter.TabAdapter').init(this.js, "content")>
+		<cfset tabAdapter.newTab("myTab", informationTab, "content", "toptabdiv")>
+
+
+		<cfif this.actionName EQ "edit">
+			<cfset activelink = this.link.generate("ajax", "system/genre", "activeGrid", "GENREID="& url.id)>
+		<cfelse>
+			<cfset activelink = this.link.generate("ajax", "system/genre", "activeGrid", "GENREID=0")>
+		</cfif>
+
+		<!--- start :grid information --->
+		<!--- <cfset Grid = attachGrid(id="Grid",title="",container="CodeSetup",detailsLink=Grid,sectionHeaderCss="cssSectionHeader cssEditDetailsHeaderMargin")> --->
+		<cfset activeGrid = attachGrid(id="activeGrid",title="", container="active", detailsLink=activelink,sectionHeaderCss="cssSectionHeader cssEditDetailsHeaderMargin", hasNav=false)>
+		<cfset activeGrid.execute("hasCheckboxes = true")>
+
+		<cfset activeGrid.execute("editable = true")>
+		<!--- <cfset activeGrid.execute("setCustomHeader = [null,'Game Code','Game Description',null,'Created By','Created Date/Time']")> --->
+
+		<cfset activeGrid.execute("convReadonlyMode = true")>
+		<cfset activeGrid.execute("columnSort = [null,1,2,3,4]")>
+		<cfset GameCodeLookUp = this.link.generate("ajax", "system/genre", "GameCodeLookUp")>
+		<cfset activeGrid.execute("attachMultiCellLookup  = [null,null,['#GameCodeLookUp#',1],null]")>
+		<cfset activeGrid.execute("orderby = 2")>
+		<cfset activeGrid.execute("defaultOrderby = 2")>
+		<cfset activeGrid.execute("asc = 1")>
+		<cfset activeGrid.addButtonManager()>
+		<cfset activeGrid.appendButton('add', 'Revise', 'right')>
+		<cfset activeGrid.execute("buttonManager.getButton('add').item.onclick = functionCaller(addgridrow)")>
+		<cfset activeGrid.appendButton('delete','Delete','left')>
+		<cfset deleteURL = this.link.generate('ajax', 'system/genre', 'deleteDetails')>
+		<cfset activeGrid.execute("buttonManager.getButton('delete').item.onclick = function(){	#this.pageName#.executeSave('#deleteURL#&deleteList='+#activeGrid.id#.getChecked().toString(),deleteExist());
+		Page_Grid.ajax(Page_Grid);
+	}"
+)>
+
+		<!--- end : tax grid information --->de
+		<!--- <cfset gameCodeLookup = this.link.generate("ajax", "system/gModel", "gameCodeLookup")>
+		<cfset activeGrid.execute("attachMultiCellLookup  = [['#gameCodeLookup#',3],null,['#gameCodeLookup#',1],null]")> --->
+
+		<cfsavecontent variable="onloadJS">
+		<cfoutput>
+			var deletePrompt = new ConfirmPopupClass(null, '', 'Confirmation','#application.message.getSystemMessage(3000)#','','400','110');
+			var jsPrompt = new ConfirmPopupClass(null, '', 'Confirmation','','','400','110');
+
+			deletePrompt.saveButton.onclick =
+			function() {
+				#this.pageName#.executeSave('#deleteURL#&deleteList='+#activeGrid.id#.getChecked().toString(),deleteExist,deletePrompt);
+			};
+
+			jsPrompt.saveButton.onclick =
+			function() {
+				 #activeGrid.id#.deleteJSRow(Page,true,null,jsPrompt);
+
+				if(#activeGrid.id#.table.rows.length == 1)
+					#activeGrid.id#.ajax();
+			};
+
+			function addgridrow(){
+				#activeGrid.id#.addJSRow();
+			};
+		</cfoutput>
+		</cfsavecontent>
+		<cfset this.js.appendOnload(onloadJS)>
+
+		 <cfsavecontent variable ="inlineJS">
+			<cfoutput>
+
+				function deleteExist(){
+					#activeGrid.id#.deleteJSRow(Page,true,null);
+				};
+			</cfoutput>
+		</cfsavecontent>
+		<cfset this.js.appendInline(inlineJS)>
+
+
+	</cffunction>
+
+
+
+	<cffunction name="InactiveSection" access="public" returntype="void" output="no">
+		<cfset var f = this.ds.fields>
+		<!--- Tabs --->
+		<cfset activeTab = {title = " Active", content = "active", css="cssTabSection"}>
+		<cfset inactiveTab = {title = " Inactive", content = "inactive", css="cssTabSection"}>
+		<!--- <cfset informationTab = [activeTab,inactiveTab]>
+		<cfset tabAdapter = createObject('component','ies_ng8.adapter.TabAdapter').init(this.js, "content")>
+		<cfset tabAdapter.newTab("myTab", informationTab, "content", "toptabdiv")> --->
+
+		<cfif this.actionName EQ "edit">
+			<cfset inactivelink = this.link.generate("ajax", "system/genre", "inactiveGrid", "GENREID="& url.id)>
+		<cfelse>
+			<cfset inactivelink = this.link.generate("ajax", "system/genre", "inactiveGrid", "GENREID=0")>
+		</cfif>
+
+		<cfset inactiveGrid = attachGrid(id="inactiveGrid",title="", container="inactive", detailsLink=inactivelink,sectionHeaderCss="cssSectionHeader cssEditDetailsHeaderMargin", hasNav=false)>
+
+		<cfset inactiveGrid.execute("hasCheckboxes = true")>
+		<cfset inactiveGrid.execute("columnSort = [null,1,2,3,4]")>
+		<cfset inactiveGrid.execute("editable = true")>
+		<cfset inactiveGrid.execute("convReadonlyMode = true")>
+
+		<!--- button --->
+		<cfset inactiveGrid.addButtonManager()>
+		<cfset inactiveGrid.appendButton('delete','Delete','left')>
+		<cfset deleteURL = this.link.generate('ajax', 'system/genre', 'deleteDetails')>
+		<cfset inactiveGrid.execute("buttonManager.getButton('delete').item.onclick = function(){deleteConvRow(#inactiveGrid.id#,letePrompt,jsPrompt);}")>
+
+		<!--- <cfsavecontent variable="onloadJS">
+		<cfoutput>
+			var deletePrompt = new ConfirmPopupClass(null, '', 'Confirmation','#application.message.getSystemMessage(3000)#','','400','110');
+			var jsPrompt = new ConfirmPopupClass(null, '', 'Confirmation','','','400','110');
+
+			deletePrompt.saveButton.onclick =
+			function() {
+				#this.pageName#.executeSave('#deleteURL#&deleteList='+#inactiveGrid.id#.getChecked().toString(),deleteExist,deletePrompt);
+			};
+
+			jsPrompt.saveButton.onclick =
+			function() {
+				 #inactiveGrid.id#.deleteJSRow(Page,true,null,jsPrompt);
+
+				if(#inactiveGrid.id#.table.rows.length == 1)
+					#inactiveGrid.id#.ajax();
+			};
+
+			function addgridrow(){
+				#inactiveGrid.id#.addJSRow();
+			};
+		</cfoutput>
+		</cfsavecontent> --->
+		<cfset this.js.appendOnload(onloadJS)>
+
+		<!---  <cfsavecontent variable ="inlineJS">
+			<cfoutput>
+
+				function deleteExist(){
+					#inactiveGrid.id#.deleteJSRow(Page,true,null);
+				};
+			</cfoutput>
+		</cfsavecontent> --->
+		<cfset this.js.appendInline(inlineJS)>
+
+	</cffunction>
+	<cffunction name="setButtons" access="public" returntype="void" output="no">
+		<cfargument name="pageManager" type="ies_ng8.adapter.PageAdapter" required="yes" />
+		<cfargument name="link" type="ies_ng8.lib.LinkGenerator" required="yes" />
+		<cfargument name="embed" required="no" default="false" type="boolean">
+		<cfset acl = createObject('component', 'adapter.acl.#application.ACLAdapter#').init(session.userid, session.usergroupid, "GenreCode", "edit")>
+		<cfset var f = this.ds.fields>
+		<!--- <cfthrow message="123"> --->
+		<cfif this.actionName IS "add">
+			<cfset this.pageManager.addButton("prepend", "submit", "Save", link.generate("ajax", this.controllerName, "add"),redirectAfterInsertLink(link))>
+		<cfelse>
+			<cfif acl.hasAccess(acl.ACLEDIT) eq true>
+				<cfset pageManager.addCustomSaveButton("prepend", "btnSave", "Save", link.generate("ajax", this.controllerName, "edit"),true, "AfterSave")>
+			<cfelse>
+				<!--- Disable all the form when cannot edit --->
+				<cfset disableFields()>
+				<cfset this.js.appendOnload('disable();')>
+				<!--- Disable all the form when cannot edit --->
+			</cfif>
+		</cfif>
+
+	</cffunction>
+</cfcomponent>
