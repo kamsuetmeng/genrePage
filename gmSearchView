@@ -1,0 +1,53 @@
+<cfcomponent output="false" extends="ies_ng8.view.template.SearchTemplate">
+
+	<cffunction name="init"returntype="any" access="public" output="false">
+		<cfargument name="js" type="ies_ng8.lib.Javascript" required="true" />
+		<cfargument name="style" type="ies_ng8.lib.Css" required="true" />
+		<cfargument name="title" type="string" required="no" default="" />
+		<cfargument name="searchPage" type="string" required="yes" />
+		<cfargument name="ds" required="yes" type="ies_ng8.lib.DataSource" />
+		<cfargument name="controllerName" type="string" required="no" default="" />
+		<cfargument name="actionName" type="string" required="no" default="search" />
+		<cfargument name="pageName" type="string" required="no" default="Page" />
+		<cfargument name="container" type="string" required="no" default="SearchCriteria" />
+		<cfargument name="standalone" type="boolean" required="no" default="true" />
+
+		<cfset super.init( js, style, title, searchPage, ds, controllerName, actionName, pageName, container, standalone )>
+
+		<cfreturn this>
+	</cffunction>
+
+	<cffunction name="outputDetails" access="private" returntype="void" output="no">
+		<cfargument name="pageManager" type="ies_ng8.adapter.PageAdapter" required="yes" />
+		<cfargument name="link" type="ies_ng8.lib.LinkGenerator" required="yes" />
+		<cfargument name="tableAdapter" type="ies_ng8.adapter.TableAdapter" required="yes" />
+
+		<cfset acl = createObject('component', 'adapter.acl.#application.ACLAdapter#').init(session.userid, session.usergroupid, "genre", "search")>
+		<cfset var f = this.ds.fields>
+		<cfif acl.hasAccess(acl.ACLADD) eq true>
+			<cfset pageManager.addButton("prepend", "add", "",link.generate("webpage", this.controllerName, "add", "rc=#this.controllerName#&ra=#this.actionName#"))>
+		</cfif>
+		<!--- <cfdump var="#f#" format="html" output="C:/filename.html"> --->
+		<cfset outputSearchField(f.GENRECODE, "stringpair")>
+		<cfset outputSearchField(f.GENREDESC, "TextBox")>
+		<cfset outputSearchField(f.GGAMECODE, "TextBox")>
+		<!--- <cfset outputSearchField(f.GENREDESC, "Blank")> --->
+		<cfset outputSearchField(f.STATUS, "CheckBox")>
+		<!--- <cfdump var="#f#" format="html" output="C:/filename.html"> --->
+
+		<cfset attachStandardLookup( field = f.GENRECODE, 
+    		uri = this.link.generate("ajax", "system/genre", "GenreCodeLookUp"),
+  			 title= f.GENRECODE.getLabel(),stringpair=true)>
+
+		<cfset attachStandardLookup( field = f.GGAMECODE,
+    		uri = this.link.generate("ajax", "system/game", "gameCodeLookup"),
+  			 title= f.GGAMECODE.getLabel(),stringpair=false)>
+	
+		
+		<!--- <cfset tableAdapter.execute("columnSort = [null, 1, 2, 3, 4]")> --->
+		
+		<cfset setStandardDrillIn( link.generate("webpage", this.controllerName, "edit", "rc=#this.controllerName#&ra=#this.actionName#&id="), tableAdapter )>
+		<cfset tableAdapter.setHistory(this.pageName)>
+	</cffunction>
+
+</cfcomponent>
